@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Hand, Settings, Activity } from 'lucide-react';
 import { cn } from '../components/Navbar';
+import { useTranslation } from '../components/LanguageContext';
+import { alphabetData, PLACEHOLDER_IMAGE } from '@/data/alphabet';
+import { type SignSystem, SIGN_SYSTEM_MAP } from '@/data/signSystems';
+import SystemToggle from '@/components/SystemToggle';
+import ComparisonPanel from '@/components/ComparisonPanel';
+import SignPlayer from '@/components/SignPlayer';
+import SpeedControl from '@/components/SpeedControl';
 
 // Simplified types for Web Speech API
 interface SpeechRecognition extends EventTarget {
@@ -18,12 +25,17 @@ interface SpeechRecognition extends EventTarget {
 }
 
 export default function Interactive() {
-  const [system, setSystem] = useState<'bisindo' | 'sibi'>('bisindo');
-  const [disabilityProfile, setDisabilityProfile] = useState<'deaf' | 'mute' | 'motor'>('deaf');
+  const { t } = useTranslation();
+  const [activeSystems, setActiveSystems] = useState<SignSystem[]>(['bisindo']);
+  const [speed, setSpeed] = useState(800);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [currentSequence, setCurrentSequence] = useState<string[]>([]);
-  const [activeFrameIndex, setActiveFrameIndex] = useState(-1);
+  
+  // Animation state
+  const [currentWord, setCurrentWord] = useState('');
+  const [stopMotionIndex, setStopMotionIndex] = useState(-1);
+  const [isPlaying, setIsPlaying] = useState(false);
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
@@ -35,6 +47,7 @@ export default function Interactive() {
       if (recognitionRef.current) {
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
+        // Use Indonesian as primary, can be configurable later
         recognitionRef.current.lang = 'id-ID';
 
         recognitionRef.current.onresult = (event: any) => {
@@ -58,8 +71,9 @@ export default function Interactive() {
         };
 
         recognitionRef.current.onend = () => {
+          // If we intentionally stopped it (e.g. word finished), keep it off
+          // If it died randomly while we still want it on, restart it
           if (isListening) {
-            // Auto restart if it was stopped unintentionally
             try {
               recognitionRef.current?.start();
             } catch(e) {}
@@ -73,7 +87,7 @@ export default function Interactive() {
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [isListening]);
 
   const toggleListening = () => {
     if (isListening) {
@@ -91,37 +105,38 @@ export default function Interactive() {
   };
 
   const triggerStopMotion = (word: string) => {
-    const chars = word.split('');
-    setCurrentSequence(chars);
-    setActiveFrameIndex(0);
+    setCurrentWord(word);
+    setStopMotionIndex(0);
+    setIsPlaying(true);
+    // Turn off mic immediately
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsListening(false);
   };
 
-  useEffect(() => {
-    if (activeFrameIndex >= 0 && activeFrameIndex < currentSequence.length) {
-      // Adjust speed based on disability profile
-      const speed = disabilityProfile === 'motor' ? 1500 : 800; // Slower for motor disabilities
-      const timer = setTimeout(() => {
-        setActiveFrameIndex(prev => prev + 1);
-      }, speed);
-      return () => clearTimeout(timer);
-    } else if (activeFrameIndex >= currentSequence.length) {
-      // Reset after sequence ends
-      const timer = setTimeout(() => {
-        setCurrentSequence([]);
-        setActiveFrameIndex(-1);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeFrameIndex, currentSequence, disabilityProfile]);
+  const chars = currentWord.split('');
+  const isComparing = activeSystems.length >= 2;
+
+  // Stop motion callback
+  const handleStopMotionComplete = useCallback(() => {
+    setStopMotionIndex((prev) => {
+      if (prev < chars.length - 1) return prev + 1;
+      
+      // Sequence completed!
+      setIsPlaying(false);
+      return prev;
+    });
+  }, [chars.length]);
 
   return (
     <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-          Level 3: Interactive Practice
+          {t('interactive.title')}
         </h1>
         <p className="text-slate-600 dark:text-slate-400 max-w-2xl">
-          Use voice recognition to trigger stop-motion sign language sequences. Tailored for different accessibility needs.
+          {t('interactive.subtitle')}
         </p>
       </div>
 
@@ -131,80 +146,26 @@ export default function Interactive() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
               <Settings className="w-5 h-5 text-brand-500" />
-              Preferences
+              {t('interactive.preferences')}
             </h3>
             
-            <div className="space-y-6">
+            <div className="space-y-8">
               {/* Sign System */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-                  Sign Language System
+                  {t('interactive.signSystem')}
                 </label>
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                  <button
-                    onClick={() => setSystem('bisindo')}
-                    className={cn(
-                      'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
-                      system === 'bisindo' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand-600' : 'text-slate-500'
-                    )}
-                  >
-                    BISINDO
-                  </button>
-                  <button
-                    onClick={() => setSystem('sibi')}
-                    className={cn(
-                      'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
-                      system === 'sibi' ? 'bg-white dark:bg-slate-700 shadow-sm text-purple-600' : 'text-slate-500'
-                    )}
-                  >
-                    SIBI
-                  </button>
-                </div>
+                <SystemToggle activeSystems={activeSystems} onChange={setActiveSystems} />
               </div>
 
-              {/* Disability Profile */}
+
+
+              {/* Speed Control */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-                  Accessibility Profile
+                  {t('interactive.speed')}
                 </label>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setDisabilityProfile('deaf')}
-                    className={cn(
-                      'w-full text-left px-4 py-3 rounded-xl border transition-all',
-                      disabilityProfile === 'deaf' 
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    )}
-                  >
-                    <div className="font-semibold text-sm">Deaf / Hard of Hearing</div>
-                    <div className="text-xs opacity-80 mt-1">Focus on visual clarity and standard speed</div>
-                  </button>
-                  <button
-                    onClick={() => setDisabilityProfile('mute')}
-                    className={cn(
-                      'w-full text-left px-4 py-3 rounded-xl border transition-all',
-                      disabilityProfile === 'mute' 
-                        ? 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    )}
-                  >
-                    <div className="font-semibold text-sm">Speech Impairment</div>
-                    <div className="text-xs opacity-80 mt-1">Enable text fallback and gesture recognition</div>
-                  </button>
-                  <button
-                    onClick={() => setDisabilityProfile('motor')}
-                    className={cn(
-                      'w-full text-left px-4 py-3 rounded-xl border transition-all',
-                      disabilityProfile === 'motor' 
-                        ? 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    )}
-                  >
-                    <div className="font-semibold text-sm">Motor/Cognitive Impairment</div>
-                    <div className="text-xs opacity-80 mt-1">Slower stop-motion frame rate for easier tracking</div>
-                  </button>
-                </div>
+                <SpeedControl speed={speed} onChange={setSpeed} />
               </div>
             </div>
           </div>
@@ -236,24 +197,26 @@ export default function Interactive() {
                   <div className="bg-slate-100 dark:bg-slate-800 px-6 py-3 rounded-2xl w-full border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-3">
                     <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
                     <span className="text-slate-700 dark:text-slate-300 font-medium truncate">
-                      {transcript || "Listening..."}
+                      {transcript || t('interactive.listening')}
                     </span>
                   </div>
                 ) : (
-                  <p className="text-slate-500">Tap the microphone and say a word to translate.</p>
+                  <p className="text-slate-500 font-medium">
+                    {chars.length > 0 ? t('interactive.micReady') : t('interactive.tapMic')}
+                  </p>
                 )}
               </div>
             </div>
 
             {/* Stop Motion Viewer */}
-            <div className="w-full bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 min-h-[400px] relative overflow-hidden flex flex-col items-center justify-center p-8">
-              {currentSequence.length > 0 ? (
+            <div className="w-full bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 min-h-[400px] relative overflow-hidden flex flex-col items-center justify-center p-6 md:p-8">
+              {chars.length > 0 && stopMotionIndex >= 0 ? (
                 <>
                   <div className="text-xl font-bold mb-8 tracking-widest text-slate-400">
-                    {currentSequence.map((char, idx) => (
+                    {chars.map((char, idx) => (
                       <span key={idx} className={cn(
-                        "mx-1 transition-colors",
-                        idx === activeFrameIndex ? "text-brand-500 dark:text-brand-400 scale-125 inline-block" : ""
+                        "mx-1 transition-colors duration-200",
+                        idx === stopMotionIndex ? "text-brand-500 dark:text-brand-400 scale-125 inline-block" : ""
                       )}>
                         {char}
                       </span>
@@ -261,41 +224,90 @@ export default function Interactive() {
                   </div>
 
                   <AnimatePresence mode="wait">
-                    {activeFrameIndex < currentSequence.length && (
+                    {stopMotionIndex < chars.length && (
                       <motion.div
-                        key={activeFrameIndex}
-                        initial={{ opacity: 0, scale: 0.8 }}
+                        key={stopMotionIndex}
+                        initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 1.2 }}
+                        exit={{ opacity: 0, scale: 1.1 }}
                         transition={{ duration: 0.2 }}
-                        className="flex flex-col items-center"
+                        className="w-full max-w-2xl flex flex-col items-center"
                       >
-                        <div className={cn(
-                          "w-48 h-48 rounded-full flex items-center justify-center mb-6 relative border-4",
-                          system === 'bisindo' ? "bg-brand-50 border-brand-200 dark:bg-slate-800" : "bg-purple-50 border-purple-200 dark:bg-slate-800"
-                        )}>
-                          {/* Placeholder for actual stop motion frame */}
-                          <Hand className={cn(
-                            "w-24 h-24",
-                            system === 'bisindo' ? "text-brand-500" : "text-purple-500"
-                          )} />
-                          <div className="absolute top-2 right-2 bg-white dark:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm">
-                            {activeFrameIndex + 1}/{currentSequence.length}
+                        {isComparing ? (
+                          <ComparisonPanel
+                            activeSystems={activeSystems}
+                            currentLetter={chars[stopMotionIndex]}
+                            renderPanel={(system) => {
+                              const frames = alphabetData[chars[stopMotionIndex]]?.[system] ?? [];
+                              return (
+                                <SignPlayer
+                                  frames={frames.length > 0 ? frames : [PLACEHOLDER_IMAGE]}
+                                  speed={speed}
+                                  autoPlay={isPlaying}
+                                  onComplete={handleStopMotionComplete}
+                                  showControls={false}
+                                />
+                              );
+                            }}
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-4">
+                            <SignPlayer
+                              frames={(alphabetData[chars[stopMotionIndex]]?.[activeSystems[0]] ?? []).length > 0
+                                ? alphabetData[chars[stopMotionIndex]][activeSystems[0]]
+                                : [PLACEHOLDER_IMAGE]
+                              }
+                              speed={speed}
+                              autoPlay={isPlaying}
+                              onComplete={handleStopMotionComplete}
+                              showControls={false}
+                              className="scale-125 mb-4"
+                            />
+                            <div className="text-6xl font-black text-slate-900 dark:text-white mt-4">
+                              {chars[stopMotionIndex]}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-6xl font-black text-slate-900 dark:text-white">
-                          {currentSequence[activeFrameIndex]}
-                        </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  {/* Manual controls */}
+                  <div className="flex items-center gap-3 mt-8">
+                    <button
+                      onClick={() => {
+                        setCurrentWord('');
+                        setTranscript('');
+                        setStopMotionIndex(-1);
+                        setIsPlaying(false);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-brand-600 text-white font-medium text-sm hover:bg-brand-700 transition-colors"
+                    >
+                      {t('common.reset')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (stopMotionIndex >= chars.length - 1 && !isPlaying) {
+                          setStopMotionIndex(0);
+                          setIsPlaying(true);
+                        } else {
+                          setIsPlaying((p) => !p);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                    >
+                      {isPlaying ? t('common.pause') : t('common.play')}
+                    </button>
+                  </div>
                 </>
               ) : (
                 <div className="text-center text-slate-400">
                   <Hand className="w-20 h-20 mx-auto mb-6 opacity-20" />
-                  <p className="text-lg">Stop Motion Frame Viewer</p>
-                  <p className="text-sm mt-2 max-w-sm mx-auto">
-                    Waiting for voice input... The animation speed will adapt based on the selected accessibility profile.
+                  <p className="text-lg font-medium text-slate-600 dark:text-slate-400">
+                    {t('interactive.stopMotionViewer')}
+                  </p>
+                  <p className="text-sm mt-2 max-w-sm mx-auto opacity-70">
+                    {t('interactive.waiting')}
                   </p>
                 </div>
               )}

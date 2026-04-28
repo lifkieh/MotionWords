@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#f1f5f9" rx="20"/>
+  <g transform="translate(200,180)" fill="none" stroke="#94a3b8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-40,40 L-40,-20 Q-40,-50 -20,-50 Q0,-50 0,-20 L0,40"/>
+    <path d="M0,-20 L0,-60 Q0,-80 15,-80 Q30,-80 30,-60 L30,40"/>
+    <path d="M30,-60 L30,-70 Q30,-90 45,-90 Q60,-90 60,-70 L60,40"/>
+    <path d="M60,-60 L60,-65 Q60,-80 75,-80 Q90,-80 90,-65 L90,20 Q90,60 60,80 L40,90"/>
+    <path d="M-40,40 Q-60,50 -65,30 Q-70,10 -50,-5"/>
+  </g>
+  <text x="200" y="320" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="600" fill="#94a3b8">Sign Placeholder</text>
+</svg>

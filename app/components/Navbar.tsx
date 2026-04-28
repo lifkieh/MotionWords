@@ -2,26 +2,32 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { HandMetal, BookOpen, MessageSquare, Mic, Menu, X } from 'lucide-react';
+import { HandMetal, BookOpen, MessageSquare, Mic, Menu, X, Globe } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useTranslation } from './LanguageContext';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const navItems = [
-  { name: 'Home', href: '/', icon: HandMetal },
-  { name: 'Level 1: Alphabet', href: '/learn', icon: BookOpen },
-  { name: 'Level 2: Words', href: '/spelling', icon: MessageSquare },
-  { name: 'Level 3: Interactive', href: '/interactive', icon: Mic },
-];
-
 export function Navbar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { locale, setLocale, t } = useTranslation();
+
+  const navItems = [
+    { name: t('nav.home'), href: '/', icon: HandMetal },
+    { name: t('nav.level1'), href: '/learn', icon: BookOpen },
+    { name: t('nav.level2'), href: '/spelling', icon: MessageSquare },
+    { name: t('nav.level3'), href: '/interactive', icon: Mic },
+  ];
+
+  const toggleLocale = () => {
+    setLocale(locale === 'en' ? 'id' : 'en');
+  };
 
   return (
     <nav className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/70 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800">
@@ -57,10 +63,26 @@ export function Navbar() {
                 </Link>
               );
             })}
+
+            {/* Language Toggle */}
+            <button
+              onClick={toggleLocale}
+              className="ml-2 flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
+              title={locale === 'en' ? 'Switch to Indonesian' : 'Ganti ke Inggris'}
+            >
+              <Globe className="w-4 h-4" />
+              <span className="font-bold">{locale === 'en' ? '🇬🇧 EN' : '🇮🇩 ID'}</span>
+            </button>
           </div>
 
           {/* Mobile Nav Toggle */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              onClick={toggleLocale}
+              className="p-2 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold"
+            >
+              {locale === 'en' ? '🇬🇧' : '🇮🇩'}
+            </button>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="p-2 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"

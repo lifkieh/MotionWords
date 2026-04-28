@@ -3,32 +3,35 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { BookOpen, MessageSquare, Mic, ArrowRight, HandMetal } from "lucide-react";
-
-const features = [
-  {
-    title: "Level 1: Alphabet Tutor",
-    description: "Learn basic A-Z sign language. Supports both BISINDO and SIBI formats tailored for different learning needs.",
-    icon: BookOpen,
-    href: "/learn",
-    color: "bg-blue-500",
-  },
-  {
-    title: "Level 2: Word Translation",
-    description: "Convert typed words into a sequence of sign language hand gestures. Build your vocabulary visually.",
-    icon: MessageSquare,
-    href: "/spelling",
-    color: "bg-purple-500",
-  },
-  {
-    title: "Level 3: Interactive Practice",
-    description: "Advanced learning using voice detection and gesture tracking to practice sign language interactively.",
-    icon: Mic,
-    href: "/interactive",
-    color: "bg-emerald-500",
-  },
-];
+import { useTranslation } from "./components/LanguageContext";
 
 export default function Home() {
+  const { t } = useTranslation();
+
+  const features = [
+    {
+      title: t('home.level1.title'),
+      description: t('home.level1.desc'),
+      icon: BookOpen,
+      href: "/learn",
+      color: "bg-blue-500",
+    },
+    {
+      title: t('home.level2.title'),
+      description: t('home.level2.desc'),
+      icon: MessageSquare,
+      href: "/spelling",
+      color: "bg-purple-500",
+    },
+    {
+      title: t('home.level3.title'),
+      description: t('home.level3.desc'),
+      icon: Mic,
+      href: "/interactive",
+      color: "bg-emerald-500",
+    },
+  ];
+
   return (
     <div className="flex-1 w-full relative overflow-hidden">
       {/* Background decoration */}
@@ -46,30 +49,30 @@ export default function Home() {
           <div className="flex-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 text-sm font-medium mb-8 border border-brand-200 dark:border-brand-800/50">
               <HandMetal className="w-4 h-4" />
-              <span>Empowering inclusive communication</span>
+              <span>{t('home.badge')}</span>
             </div>
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6">
-              Master Sign Language with{" "}
+              {t('home.title1')}{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600 dark:from-brand-400 dark:to-purple-400">
-                MotionWords
+                {t('home.title2')}
               </span>
             </h1>
             <p className="text-xl text-slate-600 dark:text-slate-300 mb-10 leading-relaxed">
-              An interactive learning platform tailored for different needs. Learn BISINDO and SIBI through visual tutors, word translation, and voice interaction.
+              {t('home.subtitle')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href="/learn"
                 className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-2xl transition-all shadow-lg hover:shadow-brand-500/30"
               >
-                Start Learning Now
+                {t('home.cta')}
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
               <Link
                 href="#levels"
                 className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl transition-all"
               >
-                Explore Levels
+                {t('home.explore')}
               </Link>
             </div>
           </div>
@@ -115,7 +118,7 @@ export default function Home() {
                   href={feature.href}
                   className="mt-auto inline-flex items-center text-sm font-bold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors"
                 >
-                  Start Level <ArrowRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  {t('home.startLevel')} <ArrowRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </motion.div>
             );
