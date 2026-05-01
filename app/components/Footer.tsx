@@ -8,23 +8,56 @@ export function Footer() {
   const { t } = useTranslation();
 
   return (
-    <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <HandMetal className="w-5 h-5 text-brand-500" />
-            <span className="font-semibold text-slate-900 dark:text-white">MotionWords</span>
+    <footer
+      className="mt-auto"
+      style={{ borderTop: '1px solid var(--bd)', background: 'var(--s2)' }}
+    >
+      <div className="max-w-7xl mx-auto px-6 lg:px-10 py-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+
+          {/* Logo */}
+          <div className="flex items-center gap-2" style={{ color: 'var(--t1)' }}>
+            <div
+              className="w-[23px] h-[23px] rounded-[7px] flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--ac)' }}
+            >
+              <HandMetal className="w-[11px] h-[11px] text-white" />
+            </div>
+            <span className="font-semibold text-sm" style={{ letterSpacing: '-0.02em' }}>
+              Motion<span style={{ color: 'var(--ac)' }}>Words</span>
+            </span>
           </div>
-          <div className="text-sm text-slate-500 dark:text-slate-400 text-center md:text-left">
+
+          {/* Tagline */}
+          <p className="text-xs text-center" style={{ color: 'var(--t3)', maxWidth: '300px' }}>
             {t('footer.tagline')}
-          </div>
-          <div className="flex gap-4 text-sm font-medium text-slate-600 dark:text-slate-400">
-            <Link href="/learn" className="hover:text-brand-600 transition-colors">{t('footer.alphabet')}</Link>
-            <Link href="/spelling" className="hover:text-brand-600 transition-colors">{t('footer.words')}</Link>
-            <Link href="/interactive" className="hover:text-brand-600 transition-colors">{t('footer.interactive')}</Link>
+          </p>
+
+          {/* Links */}
+          <div className="flex gap-5">
+            {[
+              { label: t('footer.alphabet'),    href: '/learn' },
+              { label: t('footer.words'),       href: '/spelling' },
+              { label: t('footer.interactive'), href: '/interactive' },
+            ].map(({ label, href }) => (
+              <Link
+                key={href}
+                href={href}
+                className="text-xs font-medium transition-colors"
+                style={{ color: 'var(--t3)', textDecoration: 'none' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--t2)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--t3)')}
+              >
+                {label}
+              </Link>
+            ))}
           </div>
         </div>
-        <div className="mt-8 text-center text-xs text-slate-400">
+
+        <div
+          className="mt-6 pt-6 text-center text-[11px]"
+          style={{ borderTop: '1px solid var(--bd)', color: 'var(--t3)' }}
+        >
           {t('footer.copyright', { year: new Date().getFullYear().toString() })}
         </div>
       </div>

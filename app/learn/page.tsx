@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hand } from 'lucide-react';
+import { Hand, Layers, Grid } from 'lucide-react';
 import { cn } from '../components/Navbar';
 import { useTranslation } from '../components/LanguageContext';
 import { ALPHABET, alphabetData, PLACEHOLDER_IMAGE } from '@/data/alphabet';
@@ -34,59 +34,62 @@ export default function LearnAlphabet() {
   };
 
   const activeLetterArray = ALPHABET.filter((l) => activeLetters.has(l));
-
-  // Swipe navigation for comparison mode
-  const handleSwipePrev = useCallback(() => {
-    setSwipeIndex((prev) => Math.max(0, prev - 1));
-  }, []);
-
-  const handleSwipeNext = useCallback(() => {
-    setSwipeIndex((prev) => Math.min(activeLetterArray.length - 1, prev + 1));
-  }, [activeLetterArray.length]);
-
-  // Clamp swipe index when active letters change
+  const handleSwipePrev = useCallback(() => setSwipeIndex((prev) => Math.max(0, prev - 1)), []);
+  const handleSwipeNext = useCallback(() => setSwipeIndex((prev) => Math.min(activeLetterArray.length - 1, prev + 1)), [activeLetterArray.length]);
   const clampedSwipeIndex = Math.min(swipeIndex, Math.max(0, activeLetterArray.length - 1));
-
   const isComparing = activeSystems.length >= 2;
 
   return (
-    <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
+    <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
+      
+      {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20">
+            <Layers className="w-3 h-3" />
+            Level 01
+          </span>
+        </div>
+        <h1
+          className="text-3xl md:text-4xl font-bold text-white mb-2"
+          style={{ fontFamily: 'Syne, sans-serif' }}
+        >
           {t('learn.title')}
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 max-w-2xl">
+        <p className="text-white/40 text-sm max-w-xl font-light">
           {t('learn.subtitle')}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Active Letters Display (LEFT) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm min-h-[500px]">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">
-              {t('learn.activeLetters')} ({activeLetterArray.length})
+        {/* Main display */}
+        <div className="lg:col-span-2">
+          <div className="rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6 md:p-8 min-h-[500px]">
+            <h3 className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-6">
+              {t('learn.activeLetters')} <span className="text-indigo-400 ml-1">({activeLetterArray.length})</span>
             </h3>
 
             {activeLetterArray.length === 0 ? (
-              <div className="text-center py-20 text-slate-400 dark:text-slate-500">
-                <Hand className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p>{t('learn.noActive')}</p>
+              <div className="flex flex-col items-center justify-center py-20 text-white/20">
+                <Hand className="w-14 h-14 mb-4 opacity-30" />
+                <p className="text-sm">{t('learn.noActive')}</p>
               </div>
             ) : isComparing ? (
-              /* Comparison Mode: show one letter at a time with swipe */
               <div>
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeLetterArray[clampedSwipeIndex]}
-                    initial={{ opacity: 0, x: 30 }}
+                    initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -30 }}
-                    transition={{ duration: 0.25 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <div className="text-center mb-6">
-                      <span className="text-6xl font-black text-slate-900 dark:text-white">
+                      <span
+                        className="text-7xl font-black text-white"
+                        style={{ fontFamily: 'Syne, sans-serif' }}
+                      >
                         {activeLetterArray[clampedSwipeIndex]}
                       </span>
                     </div>
@@ -103,14 +106,12 @@ export default function LearnAlphabet() {
                         const src = frames[0] ?? PLACEHOLDER_IMAGE;
                         return (
                           <div className="flex flex-col items-center gap-2">
-                            <div className="w-32 h-32 md:w-40 md:h-40 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
+                            <div className="w-36 h-36 bg-white/[0.05] rounded-2xl border border-white/[0.08] flex items-center justify-center overflow-hidden">
                               <img
                                 src={src}
                                 alt={`${activeLetterArray[clampedSwipeIndex]} in ${system}`}
-                                className="w-full h-full object-contain p-2"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                }}
+                                className="w-full h-full object-contain p-3"
+                                onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
                               />
                             </div>
                           </div>
@@ -121,8 +122,7 @@ export default function LearnAlphabet() {
                 </AnimatePresence>
               </div>
             ) : (
-              /* Single System: show all active letters in a grid */
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
                 <AnimatePresence>
                   {activeLetterArray.map((letter) => {
                     const frames = alphabetData[letter]?.[activeSystems[0]] ?? [];
@@ -130,22 +130,23 @@ export default function LearnAlphabet() {
                     return (
                       <motion.div
                         key={letter}
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.92 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        className="flex flex-col items-center gap-3"
+                        exit={{ opacity: 0, scale: 0.92 }}
+                        className="group flex flex-col items-center gap-3"
                       >
-                        <div className="w-full aspect-square bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                        <div className="w-full aspect-square bg-white/[0.04] hover:bg-white/[0.07] rounded-2xl border border-white/[0.07] hover:border-indigo-500/30 flex items-center justify-center overflow-hidden transition-all duration-200">
                           <img
                             src={src}
                             alt={`${letter} in ${activeSystems[0]}`}
                             className="w-full h-full object-contain p-3"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                            }}
+                            onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
                           />
                         </div>
-                        <span className="text-2xl font-black text-slate-800 dark:text-slate-200">
+                        <span
+                          className="text-2xl font-black text-white/80 group-hover:text-white transition-colors"
+                          style={{ fontFamily: 'Syne, sans-serif' }}
+                        >
                           {letter}
                         </span>
                       </motion.div>
@@ -157,81 +158,66 @@ export default function LearnAlphabet() {
           </div>
         </div>
 
-        {/* Settings Panel (RIGHT) */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+        {/* Settings panel */}
+        <div className="space-y-5">
+          {/* Sign systems */}
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
+            <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4">
+              {t('learn.signSystems')}
+            </h3>
+            <SystemToggle activeSystems={activeSystems} onChange={setActiveSystems} />
+            {isComparing && (
+              <p className="mt-3 text-xs text-indigo-400/80 font-medium">
+                ✦ {t('learn.comparison')}
+              </p>
+            )}
+          </div>
+
+          {/* Alphabet grid */}
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
+            <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4">
+              {t('learn.toggleLetters')}
+            </h3>
             
-            {/* Sign System Section */}
-            <div className="mb-8">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">
-                {t('learn.signSystems')}
-              </h3>
-              <SystemToggle activeSystems={activeSystems} onChange={setActiveSystems} />
-              {isComparing && (
-                <p className="mt-3 text-xs text-brand-600 dark:text-brand-400 font-medium">
-                  ✨ {t('learn.comparison')}
-                </p>
-              )}
-            </div>
-
-            <hr className="my-6 border-slate-200 dark:border-slate-800" />
-
-            {/* Alphabet Toggle Section */}
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">
-                {t('learn.toggleLetters')}
-              </h3>
-              
-              {/* Selection Mode Toggle */}
-              <div className="bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl flex mb-4">
+            {/* Mode toggle */}
+            <div className="flex bg-white/[0.05] p-1 rounded-xl mb-4 gap-1">
+              {(['single', 'multi'] as const).map((mode) => (
                 <button
-                  onClick={() => setSelectionMode('single')}
+                  key={mode}
+                  onClick={() => setSelectionMode(mode)}
                   className={cn(
-                    'flex-1 px-2 py-2 rounded-lg font-medium text-xs transition-all',
-                    selectionMode === 'single'
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    'flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all capitalize',
+                    selectionMode === mode
+                      ? 'bg-indigo-500/30 text-indigo-300'
+                      : 'text-white/40 hover:text-white/70'
                   )}
                 >
-                  Single Focus
+                  {mode === 'single' ? 'Single' : 'Multi'}
                 </button>
-                <button
-                  onClick={() => setSelectionMode('multi')}
-                  className={cn(
-                    'flex-1 px-2 py-2 rounded-lg font-medium text-xs transition-all',
-                    selectionMode === 'multi'
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  )}
-                >
-                  Multi-Letter
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-5 gap-1.5">
-                {ALPHABET.map((letter) => {
-                  const isActive = activeLetters.has(letter);
-                  return (
-                    <button
-                      key={letter}
-                      onClick={() => toggleLetter(letter)}
-                      className={cn(
-                        'aspect-square rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-200',
-                        isActive
-                          ? 'bg-brand-600 text-white shadow-sm scale-105'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-700'
-                      )}
-                    >
-                      {letter}
-                    </button>
-                  );
-                })}
-              </div>
+              ))}
             </div>
 
+            <div className="grid grid-cols-5 gap-1.5">
+              {ALPHABET.map((letter) => {
+                const isActive = activeLetters.has(letter);
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => toggleLetter(letter)}
+                    className={cn(
+                      'aspect-square rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-150',
+                      isActive
+                        ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/40'
+                        : 'bg-white/[0.04] text-white/40 hover:bg-white/[0.08] hover:text-white/70 border border-white/[0.06]'
+                    )}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-
       </div>
     </div>
   );
