@@ -5,11 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Hand, Settings, Activity } from 'lucide-react';
 import { cn } from '../components/Navbar';
 import { useTranslation } from '../components/LanguageContext';
-import { alphabetData, PLACEHOLDER_IMAGE } from '@/data/alphabet';
+import { getSignImage, PLACEHOLDER_IMAGE } from '@/data/alphabet';
 import { type SignSystem, SIGN_SYSTEM_MAP } from '@/data/signSystems';
 import SystemToggle from '@/components/SystemToggle';
 import ComparisonPanel from '@/components/ComparisonPanel';
-import SignPlayer from '@/components/SignPlayer';
 import SpeedControl from '@/components/SpeedControl';
 
 interface SpeechRecognition extends EventTarget {
@@ -98,13 +97,19 @@ export default function Interactive() {
   const chars = currentWord.split('');
   const isComparing = activeSystems.length >= 2;
 
-  const handleStopMotionComplete = useCallback(() => {
-    setStopMotionIndex((prev) => {
-      if (prev < chars.length - 1) return prev + 1;
-      setIsPlaying(false);
-      return prev;
-    });
-  }, [chars.length]);
+  useEffect(() => {
+    if (!isPlaying || chars.length === 0) return;
+
+    const timer = setInterval(() => {
+      setStopMotionIndex((prev) => {
+        if (prev < chars.length - 1) return prev + 1;
+        setIsPlaying(false);
+        return prev;
+      });
+    }, speed);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, chars.length, speed]);
 
   return (
     <div className="flex-1 w-full" style={{ background: 'var(--bg)' }}>
@@ -305,33 +310,28 @@ export default function Interactive() {
                               activeSystems={activeSystems}
                               currentLetter={chars[stopMotionIndex]}
                               renderPanel={(system) => {
-                                const frames = alphabetData[chars[stopMotionIndex]]?.[system] ?? [];
                                 return (
-                                  <SignPlayer
-                                    frames={frames.length > 0 ? frames : [PLACEHOLDER_IMAGE]}
-                                    speed={speed}
-                                    autoPlay={isPlaying}
-                                    onComplete={handleStopMotionComplete}
-                                    showControls={false}
+                                  <img
+                                    src={getSignImage(system, chars[stopMotionIndex])}
+                                    alt={chars[stopMotionIndex]}
+                                    className="w-full h-full object-contain p-2"
+                                    onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
                                   />
                                 );
                               }}
                             />
                           ) : (
                             <div className="flex flex-col items-center gap-4">
-                              <SignPlayer
-                                frames={
-                                  (alphabetData[chars[stopMotionIndex]]?.[activeSystems[0]] ?? []).length > 0
-                                    ? alphabetData[chars[stopMotionIndex]][activeSystems[0]]
-                                    : [PLACEHOLDER_IMAGE]
-                                }
-                                speed={speed}
-                                autoPlay={isPlaying}
-                                onComplete={handleStopMotionComplete}
-                                showControls={false}
-                              />
+                              <div className="w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden bg-slate-900 border-4 flex items-center justify-center" style={{ borderColor: 'var(--ac)' }}>
+                                <img
+                                  src={getSignImage(activeSystems[0], chars[stopMotionIndex])}
+                                  alt={chars[stopMotionIndex]}
+                                  className="w-full h-full object-contain"
+                                  onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+                                />
+                              </div>
                               <div
-                                className="font-bold"
+                                className="font-bold text-center"
                                 style={{
                                   fontSize: '64px',
                                   color: 'var(--t1)',

@@ -5,11 +5,13 @@ export interface SignSystemMeta {
   name: string;
   nameId: string;
   shortLabel: string;
-  color: string;        // tailwind bg class
-  textColor: string;    // tailwind text class
-  borderColor: string;  // tailwind border class
-  bgLight: string;      // light background
-  bgDark: string;       // dark background
+  color: string;
+  textColor: string;
+  borderColor: string;
+  bgLight: string;
+  bgDark: string;
+  disabled?: boolean;       // ← tambahan: sistem yang belum tersedia
+  disabledReason?: string;  // ← tooltip saat hover
 }
 
 export const SIGN_SYSTEMS: SignSystemMeta[] = [
@@ -56,6 +58,8 @@ export const SIGN_SYSTEMS: SignSystemMeta[] = [
     borderColor: 'border-amber-300 dark:border-amber-700',
     bgLight: 'bg-amber-50',
     bgDark: 'dark:bg-amber-900/20',
+    disabled: true,
+    disabledReason: 'Coming soon',
   },
 ];
 

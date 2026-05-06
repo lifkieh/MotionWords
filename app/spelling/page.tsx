@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, MessageSquare } from 'lucide-react';
 import { cn } from '../components/Navbar';
 import { useTranslation } from '../components/LanguageContext';
-import { alphabetData, PLACEHOLDER_IMAGE } from '@/data/alphabet';
+import { getSignImage, PLACEHOLDER_IMAGE } from '@/data/alphabet';
 import { type SignSystem, SIGN_SYSTEM_MAP } from '@/data/signSystems';
 import SystemToggle from '@/components/SystemToggle';
 import ComparisonPanel from '@/components/ComparisonPanel';
-import SignPlayer from '@/components/SignPlayer';
 import SpeedControl from '@/components/SpeedControl';
 
 export default function SpellingTutor() {
@@ -33,13 +32,20 @@ export default function SpellingTutor() {
   const chars = translatedWord.split('').filter((c) => c !== ' ');
   const isComparing = activeSystems.length >= 2;
 
-  const handleStopMotionComplete = useCallback(() => {
-    setStopMotionIndex((prev) => {
-      if (prev < chars.length - 1) return prev + 1;
-      setIsPlaying(false);
-      return prev;
-    });
-  }, [chars.length]);
+
+  useEffect(() => {
+    if (!isPlaying || chars.length === 0) return;
+
+    const timer = setInterval(() => {
+      setStopMotionIndex((prev) => {
+        if (prev < chars.length - 1) return prev + 1;
+        setIsPlaying(false);
+        return prev;
+      });
+    }, speed);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, chars.length, speed]);
 
   return (
     <div className="flex-1 w-full" style={{ background: 'var(--bg)' }}>
@@ -257,8 +263,7 @@ export default function SpellingTutor() {
                                 activeSystems={activeSystems}
                                 currentLetter={char}
                                 renderPanel={(system) => {
-                                  const frames = alphabetData[char]?.[system] ?? [];
-                                  const src = frames[0] ?? PLACEHOLDER_IMAGE;
+                                  const src = getSignImage(system, char);
                                   return (
                                     <div
                                       className="w-24 h-24 rounded-xl overflow-hidden"
@@ -284,8 +289,7 @@ export default function SpellingTutor() {
                         <AnimatePresence>
                           {translatedWord.split('').map((char, index) => {
                             if (char === ' ') return <div key={`space-${index}`} className="w-6" />;
-                            const frames = alphabetData[char]?.[activeSystems[0]] ?? [];
-                            const src = frames[0] ?? PLACEHOLDER_IMAGE;
+                            const src = getSignImage(activeSystems[0], char);
                             return (
                               <motion.div
                                 initial={{ opacity: 0, y: 14 }}
@@ -325,31 +329,38 @@ export default function SpellingTutor() {
                             activeSystems={activeSystems}
                             currentLetter={chars[stopMotionIndex]}
                             renderPanel={(system) => {
-                              const frames = alphabetData[chars[stopMotionIndex]]?.[system] ?? [];
                               return (
-                                <SignPlayer
-                                  frames={frames.length > 0 ? frames : [PLACEHOLDER_IMAGE]}
-                                  speed={speed}
-                                  autoPlay={isPlaying}
-                                  onComplete={handleStopMotionComplete}
-                                  showControls={false}
-                                  label={chars[stopMotionIndex]}
+                                <img
+                                  src={getSignImage(system, chars[stopMotionIndex])}
+                                  alt={chars[stopMotionIndex]}
+                                  className="w-full h-full object-contain p-2"
+                                  onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
                                 />
                               );
                             }}
                           />
                         ) : (
-                          <SignPlayer
-                            frames={
-                              (alphabetData[chars[stopMotionIndex]]?.[activeSystems[0]] ?? []).length > 0
-                                ? alphabetData[chars[stopMotionIndex]][activeSystems[0]]
-                                : [PLACEHOLDER_IMAGE]
-                            }
-                            speed={speed}
-                            autoPlay={isPlaying}
-                            onComplete={handleStopMotionComplete}
-                            label={chars[stopMotionIndex]}
-                          />
+                          <div className="w-full flex justify-center flex-col items-center gap-4">
+                            <div className="w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden bg-slate-900 border-4 flex items-center justify-center" style={{ borderColor: 'var(--ac)' }}>
+                              <img
+                                src={getSignImage(activeSystems[0], chars[stopMotionIndex])}
+                                alt={chars[stopMotionIndex]}
+                                className="w-full h-full object-contain"
+                                onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+                              />
+                            </div>
+                            <div
+                              className="font-bold text-center"
+                              style={{
+                                fontSize: '64px',
+                                color: 'var(--t1)',
+                                letterSpacing: '-0.04em',
+                                lineHeight: 1,
+                              }}
+                            >
+                              {chars[stopMotionIndex]}
+                            </div>
+                          </div>
                         )
                       )}
                     </div>

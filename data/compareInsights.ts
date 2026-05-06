@@ -199,3 +199,5 @@ export function getInsightEmoji(type: InsightType): string {
       return '🟡';
   }
 }
+
+

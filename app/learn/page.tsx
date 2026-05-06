@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { cn } from '../components/Navbar';
 import { useTranslation } from '../components/LanguageContext';
-import { ALPHABET, alphabetData, PLACEHOLDER_IMAGE } from '@/data/alphabet';
+import { ALPHABET, getSignImage, PLACEHOLDER_IMAGE } from '@/data/alphabet';
 import { type SignSystem } from '@/data/signSystems';
 import SystemToggle from '@/components/SystemToggle';
 import ComparisonPanel from '@/components/ComparisonPanel';
@@ -164,8 +164,7 @@ export default function LearnAlphabet() {
                         activeSystems={activeSystems}
                         currentLetter={activeLetterArray[clampedSwipeIndex]}
                         renderPanel={(system) => {
-                          const frames = alphabetData[activeLetterArray[clampedSwipeIndex]]?.[system] ?? [];
-                          const src = frames[0] ?? PLACEHOLDER_IMAGE;
+                          const src = getSignImage(system, activeLetterArray[clampedSwipeIndex]);
                           return (
                             <div
                               className="w-32 h-32 rounded-xl overflow-hidden flex items-center justify-center"
@@ -188,8 +187,7 @@ export default function LearnAlphabet() {
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   <AnimatePresence>
                     {activeLetterArray.map((letter, i) => {
-                      const frames = alphabetData[letter]?.[activeSystems[0]] ?? [];
-                      const src = frames[0] ?? PLACEHOLDER_IMAGE;
+                      const src = getSignImage(activeSystems[0], letter);
                       return (
                         <motion.div
                           key={letter}

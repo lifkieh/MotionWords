@@ -23,6 +23,7 @@ export function Navbar() {
     { name: t('nav.level1'), href: '/learn', icon: BookOpen },
     { name: t('nav.level2'), href: '/spelling', icon: MessageSquare },
     { name: t('nav.level3'), href: '/interactive', icon: Mic },
+    { name: 'Level 4: Practice', href: '/practice', icon: HandMetal },
   ];
 
   const toggleLocale = () => setLocale(locale === 'en' ? 'id' : 'en');
