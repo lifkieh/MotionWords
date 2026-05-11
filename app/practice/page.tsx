@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { HandTracker } from '@/lib/handtracking/HandTracker';
-import { extractAllDual } from '@/lib/handtracking/FeatureExtractor';
+import { extractAllDual, extractAll } from '@/lib/handtracking/FeatureExtractor';
 import { useWordPractice } from '@/hooks/useWordPractice';
 import SignPracticePanel from '@/components/SignPracticePanel';
 import ProgressTracker from '@/components/ProgressTracker';
+import ThresholdDebugPanel from '@/components/ThresholdDebugPanel';
 import { Layers, Trophy, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { type SignSystem, SIGN_SYSTEMS } from '@/data/signSystems';
@@ -94,7 +95,7 @@ export default function Practice() {
 
   const {
     currentIndex, currentLetter, result, attempts,
-    completed, processFeatures, reset, skip, isFinished
+    completed, processFeatures, reset, skip, isFinished, debugInfo
   } = useWordPractice(activeWord, activeSystem);
 
   const processFeaturesRef = useRef(processFeatures);
@@ -130,8 +131,8 @@ export default function Practice() {
 
     const tracker = new HandTracker(videoRef.current);
 
-    // Callback sekarang terima DUA tangan
-    tracker.onResults((primary, secondary) => {
+    // Callback sekarang terima DUA tangan + info handedness
+    tracker.onResults((primary, secondary, primaryHandedness, secondaryHandedness) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -155,17 +156,25 @@ export default function Practice() {
 
         // extractAllDual — 84 fitur untuk BISINDO, fallback 42 untuk sistem lain
         try {
-          const isBisindo = activeSystemRef.current === 'bisindo';
+          const system = activeSystemRef.current;
+          const isBisindo = system === 'bisindo';
+
+          // Hilangkan needsTwoHands warning — BISINDO support 1 tangan
+          // extractAllDual akan otomatis isi zeros untuk secondary jika null
+
+          // TEMP: disable x-flip untuk testing — aktifkan kembali setelah validasi real-hand
+          const primaryIsLeft = false;   // was: primaryHandedness === 'Left'
+          const secondaryIsLeft = false; // was: secondaryHandedness === 'Left'
+
           const { features, vector } = isBisindo
-            ? extractAllDual(primary, secondary)   // 84 fitur
-            : extractAllDual(primary, null);        // 42 fitur (h1 = zeros)
+            ? extractAllDual(primary, secondary, primaryIsLeft, secondaryIsLeft)  // 84 fitur
+            : extractAll(primary, primaryIsLeft);                                 // 42 fitur untuk sibi/asl
 
           processFeaturesRef.current({ features, vector });
-        } catch {
+        } catch (e) {
+          console.error('[Practice] feature extraction error:', e); // ← jangan silent catch
           processFeaturesRef.current(null);
         }
-      } else {
-        processFeaturesRef.current(null);
       }
     });
 
@@ -281,6 +290,11 @@ export default function Practice() {
           </div>
         </div>
       </div>
+      <ThresholdDebugPanel 
+        system={activeSystem} 
+        debugInfo={debugInfo} 
+        currentLetter={currentLetter} 
+      />
     </div>
   );
 }

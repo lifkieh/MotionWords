@@ -17,6 +17,7 @@ export interface HandFeatures {
     ring: FingerState;
     pinky: FingerState;
   };
+  pinch?: { thumbIndex: number };
 }
 
 export interface GestureTemplate {

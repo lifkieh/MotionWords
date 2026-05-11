@@ -1,11 +1,12 @@
 import { AlertCircle, RotateCcw, FastForward, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { PracticeResult } from '@/hooks/useWordPractice';
 import { getSignImage, PLACEHOLDER_IMAGE } from '@/data/alphabet';
+
+type ResultState = 'Correct' | 'Incorrect' | 'Pending';
 
 interface SignPracticePanelProps {
   word: string;
   currentLetter: string;
-  result: PracticeResult;
+  result: ResultState;
   attempts: number;
   isFinished: boolean;
   system: string;
@@ -74,13 +75,13 @@ export default function SignPracticePanel({
           <div className={`
             flex items-center justify-center gap-2 p-3 rounded-xl border-2 font-bold transition-colors
             ${result === 'Correct' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : ''}
-            ${result === 'Not Correct' ? 'bg-rose-50 border-rose-200 text-rose-700' : ''}
-            ${result === 'Waiting' ? 'bg-slate-50 border-slate-200 text-slate-500' : ''}
+            ${result === 'Incorrect' ? 'bg-rose-50 border-rose-200 text-rose-700' : ''}
+            ${result === 'Pending' ? 'bg-slate-50 border-slate-200 text-slate-500' : ''}
           `}>
             {result === 'Correct' && <CheckCircle2 className="w-5 h-5" />}
-            {result === 'Not Correct' && <XCircle className="w-5 h-5" />}
-            {result === 'Waiting' && <Loader2 className="w-5 h-5 animate-spin" />}
-            {result}
+            {result === 'Incorrect' && <XCircle className="w-5 h-5" />}
+            {result === 'Pending' && <Loader2 className="w-5 h-5 animate-spin" />}
+            {result === 'Correct' ? 'Perfect Match' : result === 'Incorrect' ? 'Keep Trying' : 'Waiting for gesture...'}
           </div>
 
           {/* Image Hint Box: Shows up after 3 attempts */}

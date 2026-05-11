@@ -16,27 +16,32 @@ export default function ProgressTracker({ word, currentIndex, completed }: Progr
         const isPast = idx < currentIndex;
         const isSuccess = isPast && completed[idx];
         const isFailed = isPast && !completed[idx]; // For skipped letters
+        const isDynamic = char === 'J' || char === 'Z';
+        const isDynamicPassed = isPast && isSuccess && isDynamic;
 
         return (
           <div
             key={idx}
+            title={isDynamicPassed ? 'Dynamic gesture — auto-passed' : undefined}
             className={`
               relative flex flex-col items-center justify-center w-12 h-14 rounded-xl border-2 transition-all duration-300
               ${isCurrent ? 'border-brand-500 bg-brand-50 transform scale-110 shadow-md' : ''}
-              ${isPast ? (isSuccess ? 'border-emerald-500 bg-emerald-50' : 'border-rose-500 bg-rose-50') : ''}
+              ${isPast ? (isSuccess ? (isDynamic ? 'border-blue-400 bg-blue-50' : 'border-emerald-500 bg-emerald-50') : 'border-rose-500 bg-rose-50') : ''}
               ${!isCurrent && !isPast ? 'border-slate-200 bg-slate-50 text-slate-400' : ''}
             `}
           >
-            <span className={`text-xl font-bold ${isCurrent ? 'text-brand-600' : isPast ? (isSuccess ? 'text-emerald-600' : 'text-rose-600') : ''}`}>
+            <span className={`text-xl font-bold ${isCurrent ? 'text-brand-600' : isPast ? (isSuccess ? (isDynamic ? 'text-blue-500' : 'text-emerald-600') : 'text-rose-600') : ''}`}>
               {char}
             </span>
             
             {/* Status Icon Indicator */}
             {isPast && (
               <div className={`absolute -bottom-2 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white
-                ${isSuccess ? 'bg-emerald-500' : 'bg-rose-500'}
+                ${isDynamicPassed ? 'bg-blue-400' : isSuccess ? 'bg-emerald-500' : 'bg-rose-500'}
               `}>
-                {isSuccess ? <Check className="w-3 h-3 text-white" /> : <X className="w-3 h-3 text-white" />}
+                {isDynamicPassed
+                  ? <span className="text-[8px]">🔄</span>
+                  : isSuccess ? <Check className="w-3 h-3 text-white" /> : <X className="w-3 h-3 text-white" />}
               </div>
             )}
 

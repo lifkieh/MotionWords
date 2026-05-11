@@ -23,6 +23,17 @@ function calculateAngle(p1: Point3D, p2: Point3D, p3: Point3D): number {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Handedness normalization — flip x untuk tangan kiri
+// Model dilatih dengan tangan kanan. Tangan kiri di-mirror
+// sehingga landmark-nya seolah tangan kanan dari perspektif model.
+// ─────────────────────────────────────────────────────────────
+
+function normalizeHandedness(landmarks: Point3D[], isLeftHand: boolean): Point3D[] {
+  if (!isLeftHand) return landmarks;
+  return landmarks.map(lm => ({ ...lm, x: 1 - lm.x }));
+}
+
+// ─────────────────────────────────────────────────────────────
 // HandFeatures extractor (tidak diubah — untuk template fallback)
 // ─────────────────────────────────────────────────────────────
 
@@ -95,32 +106,44 @@ export function extractLandmarksDualHand(
 }
 
 // ─────────────────────────────────────────────────────────────
-// extractAll — convenience untuk satu tangan (practice page)
+// extractAll — convenience untuk satu tangan (SIBI/ASL)
+// primaryIsLeft: true jika MediaPipe melabeli tangan ini 'Left'
 // ─────────────────────────────────────────────────────────────
 
-export function extractAll(landmarks: Point3D[]): {
+export function extractAll(
+  landmarks: Point3D[],
+  primaryIsLeft: boolean = false
+): {
   features: HandFeatures;
   vector: number[] | null;
 } {
+  const normalized = normalizeHandedness(landmarks, primaryIsLeft);
   return {
-    features: extractFeatures(landmarks),
-    vector: extractLandmarks(landmarks),
+    features: extractFeatures(normalized),
+    vector: extractLandmarks(normalized),
   };
 }
 
 // ─────────────────────────────────────────────────────────────
 // extractAllDual — convenience untuk dua tangan (BISINDO)
+// Masing-masing tangan di-normalize sesuai handedness-nya
 // ─────────────────────────────────────────────────────────────
 
 export function extractAllDual(
   primaryLandmarks: Point3D[],
-  secondaryLandmarks?: Point3D[] | null
+  secondaryLandmarks?: Point3D[] | null,
+  primaryIsLeft: boolean = false,
+  secondaryIsLeft: boolean = false
 ): {
   features: HandFeatures;
   vector: number[] | null;
 } {
+  const normalizedPrimary = normalizeHandedness(primaryLandmarks, primaryIsLeft);
+  const normalizedSecondary = secondaryLandmarks
+    ? normalizeHandedness(secondaryLandmarks, secondaryIsLeft)
+    : null;
   return {
-    features: extractFeatures(primaryLandmarks),
-    vector: extractLandmarksDualHand(primaryLandmarks, secondaryLandmarks),
+    features: extractFeatures(normalizedPrimary),
+    vector: extractLandmarksDualHand(normalizedPrimary, normalizedSecondary),
   };
 }
