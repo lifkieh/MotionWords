@@ -2,15 +2,25 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { HandTracker } from '@/lib/handtracking/HandTracker';
-import { extractAllDual, extractAll } from '@/lib/handtracking/FeatureExtractor';
+import { extractAllDual, extractAll, extractAllRaw } from '@/lib/handtracking/FeatureExtractor';
 import { useWordPractice } from '@/hooks/useWordPractice';
 import SignPracticePanel from '@/components/SignPracticePanel';
 import ProgressTracker from '@/components/ProgressTracker';
 import ThresholdDebugPanel from '@/components/ThresholdDebugPanel';
 import { Layers, Trophy, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { type SignSystem, SIGN_SYSTEMS } from '@/data/signSystems';
 import { getSignImage, PLACEHOLDER_IMAGE } from '@/data/alphabet';
+import { getConfigForSystem } from '@/lib/handtracking/thresholdConfig';
+
+const HAND_CONNECTIONS = [
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  [5, 9], [9, 10], [10, 11], [11, 12],
+  [9, 13], [13, 14], [14, 15], [15, 16],
+  [13, 17], [17, 18], [18, 19], [19, 20],
+  [0, 17]
+];
 
 type PracticeMode = 'Easy' | 'Medium' | 'Hard';
 
@@ -93,6 +103,17 @@ export default function Practice() {
   const wordsQueue = MODE_WORDS[activeMode];
   const activeWord = wordsQueue[currentWordIndex] || wordsQueue[0];
 
+  // Auto Refresh & Reset State Logic for Level 4
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('fresh') === '1') {
+        url.searchParams.delete('fresh');
+        window.location.replace(url.toString());
+      }
+    }
+  }, []);
+
   const {
     currentIndex, currentLetter, result, attempts,
     completed, processFeatures, reset, skip, isFinished, debugInfo
@@ -104,9 +125,14 @@ export default function Practice() {
   const resultRef = useRef(result);
   useEffect(() => { resultRef.current = result; }, [result]);
 
-  // Ref untuk sign system — bisa dibaca di dalam closure tanpa restart tracker
   const activeSystemRef = useRef(activeSystem);
   useEffect(() => { activeSystemRef.current = activeSystem; }, [activeSystem]);
+
+  const currentLetterRef = useRef(currentLetter);
+  useEffect(() => { currentLetterRef.current = currentLetter; }, [currentLetter]);
+
+  const debugInfoRef = useRef(debugInfo);
+  useEffect(() => { debugInfoRef.current = debugInfo; }, [debugInfo]);
 
   const handleModeChange = (mode: PracticeMode) => {
     setActiveMode(mode);
@@ -140,17 +166,45 @@ export default function Practice() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (primary) {
-        // Gambar dot overlay untuk kedua tangan
+        const conf = debugInfoRef.current?.confidence ?? 0;
+        const thresh = getConfigForSystem(activeSystemRef.current, currentLetterRef.current).confidence;
+
+        let dotColor = '#ef4444'; // Merah
+        if (conf >= thresh) {
+          dotColor = '#10b981'; // Hijau
+        } else if (conf >= thresh - 0.15) {
+          dotColor = '#f59e0b'; // Oranye
+        }
+
         const drawHand = (lms: typeof primary, color: string) => {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 4;
+          
+          // Gambar tulang (skeleton)
+          for (const [start, end] of HAND_CONNECTIONS) {
+            const p1 = lms[start];
+            const p2 = lms[end];
+            ctx.beginPath();
+            ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+            ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+            ctx.stroke();
+          }
+
+          // Gambar sendi (dot)
           ctx.fillStyle = color;
           lms.forEach(p => {
             ctx.beginPath();
             ctx.arc(p.x * canvas.width, p.y * canvas.height, 5, 0, 2 * Math.PI);
             ctx.fill();
           });
+          
+          // Tulis persentase di pergelangan tangan
+          const wrist = lms[0];
+          ctx.font = 'bold 16px sans-serif';
+          ctx.fillStyle = color;
+          ctx.fillText(`${Math.round(conf * 100)}%`, (wrist.x * canvas.width) + 15, wrist.y * canvas.height);
         };
 
-        const dotColor = resultRef.current === 'Correct' ? '#10b981' : '#ef4444';
         drawHand(primary, dotColor);
         if (secondary) drawHand(secondary, dotColor);
 
@@ -162,13 +216,14 @@ export default function Practice() {
           // Hilangkan needsTwoHands warning — BISINDO support 1 tangan
           // extractAllDual akan otomatis isi zeros untuk secondary jika null
 
-          // TEMP: disable x-flip untuk testing — aktifkan kembali setelah validasi real-hand
-          const primaryIsLeft = false;   // was: primaryHandedness === 'Left'
-          const secondaryIsLeft = false; // was: secondaryHandedness === 'Left'
+          // Untuk Bisindo, aktifkan x-flip (mirror) agar cocok dengan model pelatihan
+          // Untuk SIBI dan ASL, matikan x-flip karena berasal dari Kaggle dataset (raw right hand)
+          const primaryIsLeft = isBisindo ? primaryHandedness === 'Left' : false;
+          const secondaryIsLeft = isBisindo ? secondaryHandedness === 'Left' : false;
 
           const { features, vector } = isBisindo
-            ? extractAllDual(primary, secondary, primaryIsLeft, secondaryIsLeft)  // 84 fitur
-            : extractAll(primary, primaryIsLeft);                                 // 42 fitur untuk sibi/asl
+            ? extractAllDual(primary, secondary, primaryIsLeft, secondaryIsLeft)  // 84 fitur normalisasi
+            : extractAll(primary);                                             // 42 fitur raw x,y SIBI/ASL
 
           processFeaturesRef.current({ features, vector });
         } catch (e) {
@@ -261,6 +316,32 @@ export default function Practice() {
               <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-white text-xs font-bold tracking-wider uppercase">
                 {activeSystem} Tracking Active
               </div>
+              
+              {/* UI Indikator Hold */}
+              <AnimatePresence>
+                {result === 'Holding' && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="absolute top-14 left-4 z-20 bg-emerald-500/90 backdrop-blur-md px-4 py-2.5 rounded-xl shadow-lg border border-emerald-400/50 flex flex-col gap-2 w-48"
+                  >
+                    <div className="flex justify-between items-center text-white text-xs font-bold uppercase tracking-wider">
+                      <span>Hold...</span>
+                      <span className="animate-pulse">⏳</span>
+                    </div>
+                    <div className="w-full bg-emerald-700/50 rounded-full h-1.5 overflow-hidden">
+                      <motion.div 
+                        className="h-full bg-white rounded-full" 
+                        initial={{ width: '0%' }}
+                        animate={{ width: '100%' }}
+                        transition={{ duration: 1, ease: 'linear' }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
               <div className="relative rounded-xl overflow-hidden bg-slate-900 aspect-video">
                 <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" playsInline muted />
                 <canvas ref={canvasRef} width={640} height={480} className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" />
@@ -298,3 +379,4 @@ export default function Practice() {
     </div>
   );
 }
+

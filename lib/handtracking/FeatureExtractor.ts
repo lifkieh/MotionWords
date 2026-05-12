@@ -147,3 +147,27 @@ export function extractAllDual(
     vector: extractLandmarksDualHand(normalizedPrimary, normalizedSecondary),
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Raw vectors untuk model Kaggle (SIBI & ASL) — 42 nilai (x, y)
+// Koordinat asli MediaPipe [0-1] tanpa normalisasi pergelangan tangan
+// ─────────────────────────────────────────────────────────────
+
+export function extractLandmarksRaw(landmarks: Point3D[]): number[] | null {
+  if (landmarks.length !== 21) return null;
+  return landmarks.flatMap((lm) => [lm.x, lm.y]);
+}
+
+export function extractAllRaw(
+  landmarks: Point3D[]
+): {
+  features: HandFeatures;
+  vector: number[] | null;
+} {
+  // Tidak ada normalizeHandedness (x-flip) di sini karena model Kaggle
+  // biasanya dilatih tanpa augmentasi mirror untuk tangan kanan
+  return {
+    features: extractFeatures(landmarks),
+    vector: extractLandmarksRaw(landmarks),
+  };
+}

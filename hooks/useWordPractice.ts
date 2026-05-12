@@ -5,7 +5,7 @@ import { TemporalSmoother } from '@/lib/handtracking/TemporalSmoother';
 import { type SignSystem } from '@/data/signSystems';
 import { getConfigForSystem } from '@/lib/handtracking/thresholdConfig';
 
-type ResultState = 'Correct' | 'Incorrect' | 'Pending';
+type ResultState = 'Correct' | 'Incorrect' | 'Pending' | 'Holding';
 
 export function useWordPractice(word: string, system: SignSystem) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -17,7 +17,7 @@ export function useWordPractice(word: string, system: SignSystem) {
   const currentLetter = word[currentIndex];
   const isFinished = currentIndex >= word.length;
 
-  const config = getConfigForSystem(system);
+  const config = getConfigForSystem(system, currentLetter);
   
   const smootherRef = useRef<TemporalSmoother | null>(null);
   
@@ -30,6 +30,8 @@ export function useWordPractice(word: string, system: SignSystem) {
   }, [config.smoothingWindow, config.smoothingRequired]);
 
   const confirmTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const dropHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isHoldingRef = useRef(false);
   const lastMatchRef = useRef<{ timestamp: number; label: string } | null>(null);
 
   // Auto skip J and Z for all systems since they are dynamic gestures
@@ -58,10 +60,19 @@ export function useWordPractice(word: string, system: SignSystem) {
 
   const processFeatures = useCallback(async (data: { features: HandFeatures; vector: number[] | null } | null) => {
     if (!data || isFinished) {
-      setResult('Pending');
-      if (confirmTimerRef.current) {
-        clearTimeout(confirmTimerRef.current);
-        confirmTimerRef.current = null;
+      if (isHoldingRef.current && !dropHoldTimerRef.current) {
+        dropHoldTimerRef.current = setTimeout(() => {
+          isHoldingRef.current = false;
+          setResult('Pending');
+          if (confirmTimerRef.current) { clearTimeout(confirmTimerRef.current); confirmTimerRef.current = null; }
+          dropHoldTimerRef.current = null;
+        }, 100);
+      } else if (!isHoldingRef.current) {
+        setResult('Pending');
+        if (confirmTimerRef.current) {
+          clearTimeout(confirmTimerRef.current);
+          confirmTimerRef.current = null;
+        }
       }
       return;
     }
@@ -84,6 +95,17 @@ export function useWordPractice(word: string, system: SignSystem) {
       
       const smoothed = smootherRef.current.push(label, confidence);
       
+      console.log('[DEBUG]', { 
+        system, 
+        currentLetter, 
+        rawLabel: label, 
+        confidence: confidence,
+        smoothedLabel: smoothed?.label,
+        smoothedConfidence: smoothed?.confidence,
+        featuresSample: data.vector?.slice(0, 6),
+        comparison: smoothed?.label?.toUpperCase() === currentLetter?.toUpperCase()
+      });
+
       // Update debug info
       setDebugInfo({
         confidence: confidence,
@@ -92,18 +114,31 @@ export function useWordPractice(word: string, system: SignSystem) {
       });
 
       if (!smoothed) {
-        setResult('Pending');
-        if (confirmTimerRef.current) {
-          clearTimeout(confirmTimerRef.current);
-          confirmTimerRef.current = null;
+        if (isHoldingRef.current && !dropHoldTimerRef.current) {
+          dropHoldTimerRef.current = setTimeout(() => {
+            isHoldingRef.current = false;
+            setResult('Pending');
+            if (confirmTimerRef.current) { clearTimeout(confirmTimerRef.current); confirmTimerRef.current = null; }
+            dropHoldTimerRef.current = null;
+          }, 100);
+        } else if (!isHoldingRef.current) {
+          setResult('Pending');
+          if (confirmTimerRef.current) { clearTimeout(confirmTimerRef.current); confirmTimerRef.current = null; }
         }
         return;
       }
 
-      if (smoothed.label === currentLetter && smoothed.confidence >= config.confidence) {
-        if (!confirmTimerRef.current) {
-          setResult('Pending');
+      if (smoothed.label.toUpperCase() === currentLetter.toUpperCase() && smoothed.confidence >= 0.82) {
+        if (dropHoldTimerRef.current) {
+          clearTimeout(dropHoldTimerRef.current);
+          dropHoldTimerRef.current = null;
+        }
+
+        if (!isHoldingRef.current && !confirmTimerRef.current) {
+          isHoldingRef.current = true;
+          setResult('Holding'); // Berubah hijau secara instan
           confirmTimerRef.current = setTimeout(() => {
+            isHoldingRef.current = false;
             setResult('Correct');
             setCompleted((prev) => {
               const next = [...prev];
@@ -119,31 +154,42 @@ export function useWordPractice(word: string, system: SignSystem) {
           }, config.holdDurationMs);
         }
       } else {
-        setResult('Pending');
-        if (confirmTimerRef.current) {
-          clearTimeout(confirmTimerRef.current);
-          confirmTimerRef.current = null;
-        }
+        if (isHoldingRef.current && !dropHoldTimerRef.current) {
+          dropHoldTimerRef.current = setTimeout(() => {
+            isHoldingRef.current = false;
+            setResult('Pending');
+            if (confirmTimerRef.current) { clearTimeout(confirmTimerRef.current); confirmTimerRef.current = null; }
+            dropHoldTimerRef.current = null;
+          }, 100);
+        } else if (!isHoldingRef.current) {
+          setResult('Pending');
+          if (confirmTimerRef.current) {
+            clearTimeout(confirmTimerRef.current);
+            confirmTimerRef.current = null;
+          }
 
-        const now = Date.now();
-        if (smoothed.label && smoothed.label !== currentLetter) {
-          if (!lastMatchRef.current || (now - lastMatchRef.current.timestamp > 2000)) {
-            setAttempts((p) => p + 1);
-            lastMatchRef.current = { timestamp: now, label: smoothed.label };
+          const now = Date.now();
+          if (smoothed.label && smoothed.label.toUpperCase() !== currentLetter.toUpperCase()) {
+            if (!lastMatchRef.current || (now - lastMatchRef.current.timestamp > 2000)) {
+              setAttempts((p) => p + 1);
+              lastMatchRef.current = { timestamp: now, label: smoothed.label };
+            }
           }
         }
       }
     } catch (e) {
       console.error(e);
       setResult('Pending');
+      isHoldingRef.current = false;
     }
-  }, [currentLetter, isFinished, currentIndex, system, config]);
+  }, [currentLetter, isFinished, currentIndex, system, config.confidence, config.holdDurationMs]);
 
   const reset = useCallback(() => {
     setCurrentIndex(0);
     setResult('Pending');
     setAttempts(0);
     setCompleted(new Array(word.length).fill(false));
+    isHoldingRef.current = false;
     if (smootherRef.current) smootherRef.current.reset();
   }, [word]);
 
@@ -156,6 +202,7 @@ export function useWordPractice(word: string, system: SignSystem) {
     });
     setCurrentIndex(p => p + 1);
     setResult('Pending');
+    isHoldingRef.current = false;
     if (smootherRef.current) smootherRef.current.reset();
   }, [currentIndex, isFinished]);
 

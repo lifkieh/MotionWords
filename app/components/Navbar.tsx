@@ -19,11 +19,11 @@ export function Navbar() {
   const { locale, setLocale, t } = useTranslation();
 
   const navItems = [
-    { name: t('nav.home'),   href: '/', icon: HandMetal },
+    { name: t('nav.home'), href: '/', icon: HandMetal },
     { name: t('nav.level1'), href: '/learn', icon: BookOpen },
     { name: t('nav.level2'), href: '/spelling', icon: MessageSquare },
     { name: t('nav.level3'), href: '/interactive', icon: Mic },
-    { name: 'Level 4: Practice', href: '/practice', icon: HandMetal },
+    { name: 'Level 4: Practice', href: '/practice?fresh=1', icon: HandMetal },
   ];
 
   const toggleLocale = () => setLocale(locale === 'en' ? 'id' : 'en');
@@ -78,7 +78,7 @@ export function Navbar() {
               aria-label="Toggle language"
             >
               <Globe className="w-3.5 h-3.5" />
-              <span className="font-semibold">{locale === 'en' ? '🇬🇧 EN' : '🇮🇩 ID'}</span>
+              <span className="font-semibold">{locale === 'en' ? 'EN' : 'ID'}</span>
             </button>
           </div>
 

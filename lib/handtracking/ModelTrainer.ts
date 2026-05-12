@@ -48,6 +48,13 @@ export class GestureModelTrainer {
             const probs = this.model!.predict(input) as tf.Tensor;
             const arr = Array.from(probs.dataSync());
             const maxIdx = arr.indexOf(Math.max(...arr));
+            
+            console.log('[DIAG] probabilities:', arr);
+            console.log('[DIAG] argmax index:', maxIdx);
+            console.log('[DIAG] labelMap[argmax]:', this.labelMap[maxIdx]);
+            console.log('[DIAG] labelMap full:', JSON.stringify(this.labelMap));
+
+            console.log('[DIAG] argmax:', maxIdx, 'label:', this.labelMap[maxIdx], 'labelMap:', JSON.stringify(this.labelMap));
             return { label: this.labelMap[maxIdx], confidence: arr[maxIdx] };
         });
     }
