@@ -137,13 +137,13 @@ export default function Home() {
           <motion.div
             variants={fadeUp}
             transition={{ duration: 0.5 }}
-            className="flex items-center justify-center gap-3 mb-14"
+            className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-14 w-full"
           >
-            <Link href="/learn" className="btn btn-primary btn-lg">
+            <Link href="/learn" className="btn btn-primary btn-lg w-full sm:w-auto">
               {t('home.cta')}
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link href="#levels" className="btn btn-outline btn-lg">
+            <Link href="#levels" className="btn btn-outline btn-lg w-full sm:w-auto">
               {t('home.explore')}
             </Link>
           </motion.div>

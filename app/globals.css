@@ -239,18 +239,44 @@ body {
 
 /* ─── Metrics row ────────────────────────── */
 .metric-row {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   border: 1px solid var(--bd);
   border-radius: 14px;
   overflow: hidden;
   background: var(--s1);
+  width: 100%;
 }
+@media (min-width: 640px) {
+  .metric-row {
+    display: inline-flex;
+    width: auto;
+  }
+}
+
 .metric-cell {
-  padding: 18px 28px;
+  padding: 16px 20px;
   text-align: center;
   border-right: 1px solid var(--bd);
+  border-bottom: 1px solid var(--bd);
 }
-.metric-cell:last-child { border-right: none; }
+.metric-cell:nth-child(2n) {
+  border-right: none;
+}
+.metric-cell:nth-last-child(-n+2) {
+  border-bottom: none;
+}
+@media (min-width: 640px) {
+  .metric-cell {
+    padding: 18px 28px;
+    border-bottom: none !important;
+    border-right: 1px solid var(--bd) !important;
+  }
+  .metric-cell:last-child {
+    border-right: none !important;
+  }
+}
+
 .metric-val   { font-size: 22px; font-weight: 600; letter-spacing: -0.03em; color: var(--t1); line-height: 1; margin-bottom: 4px; }
 .metric-label { font-size: 11.5px; color: var(--t3); font-weight: 400; }
 

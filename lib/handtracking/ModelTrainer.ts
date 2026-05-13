@@ -46,7 +46,7 @@ export class GestureModelTrainer {
         return tf.tidy(() => {
             const input = tf.tensor2d([landmarks]);
             const probs = this.model!.predict(input) as tf.Tensor;
-            const arr = Array.from(probs.dataSync());
+            const arr = Array.from(probs.dataSync() as Float32Array);
             const maxIdx = arr.indexOf(Math.max(...arr));
             
             console.log('[DIAG] probabilities:', arr);
@@ -65,7 +65,7 @@ export class GestureModelTrainer {
         return tf.tidy(() => {
             const input = tf.tensor2d([landmarks]);
             const probs = this.model!.predict(input) as tf.Tensor;
-            const arr = Array.from(probs.dataSync());
+            const arr = Array.from(probs.dataSync() as Float32Array);
             return arr
                 .map((conf, idx) => ({ label: this.labelMap[idx], confidence: conf }))
                 .sort((a, b) => b.confidence - a.confidence)
