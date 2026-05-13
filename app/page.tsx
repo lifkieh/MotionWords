@@ -52,8 +52,8 @@ export default function Home() {
 
       {/* ── Support bar ── */}
       <div
-        className="flex items-center gap-7 px-6 lg:px-10 py-3.5 overflow-x-auto"
-        style={{ background: 'var(--s2)', borderBottom: '1px solid var(--bd)' }}
+        className="flex items-center gap-4 sm:gap-7 px-4 sm:px-6 lg:px-10 py-2.5 sm:py-3.5 overflow-x-auto hide-scroll"
+        style={{ background: 'var(--s2)', borderBottom: '1px solid var(--bd)', scrollbarWidth: 'none' }}
       >
         <span
           className="text-[10.5px] font-semibold uppercase tracking-[0.09em] whitespace-nowrap flex-shrink-0"
@@ -61,11 +61,11 @@ export default function Home() {
         >
           {t('home.level1.title').includes('Alfabet') ? 'Mendukung' : 'Supports'}
         </span>
-        <div className="flex items-center gap-5 flex-wrap">
+        <div className="flex items-center gap-3 sm:gap-5 flex-nowrap">
           {systems.map((sys, i) => (
-            <span key={sys} className="flex items-center gap-5">
+            <span key={sys} className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
               <span
-                className="text-[13.5px] font-medium"
+                className="text-[12px] sm:text-[13.5px] font-medium whitespace-nowrap"
                 style={{ color: 'var(--t3)', letterSpacing: '-0.01em' }}
               >
                 {sys}

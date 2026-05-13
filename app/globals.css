@@ -364,3 +364,12 @@ input[type=range]::-webkit-slider-thumb {
   transition: transform 0.15s;
 }
 input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+/* ─── Utilities ──────────────────────────── */
+.hide-scroll::-webkit-scrollbar {
+  display: none;
+}
+.hide-scroll {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
