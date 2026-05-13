@@ -1,11 +1,13 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Layers, Camera, X, Check, RefreshCcw } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Camera, X, Check, RefreshCcw, Database, AlertCircle } from 'lucide-react';
 import { type SignSystem, SIGN_SYSTEMS } from '@/data/signSystems';
 import { getSignImage, PLACEHOLDER_IMAGE } from '@/data/alphabet';
-import { HandTracker } from '@/lib/handtracking/HandTracker';
+import { HandTracker, type Handedness } from '@/lib/handtracking/HandTracker';
+import { extractAll, extractAllDual } from '@/lib/handtracking/FeatureExtractor';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Point3D } from '@/lib/handtracking/types';
 
 const HAND_CONNECTIONS = [
   [0, 1], [1, 2], [2, 3], [3, 4],
@@ -16,37 +18,36 @@ const HAND_CONNECTIONS = [
   [0, 17]
 ];
 
-const TARGET_PHOTOS = 10;
-const ALPHABET_TRAIN = 'ABCDEFGHIJKLMNOPQRSTUVWXY'.split('').filter(l => l !== 'J'); 
+const TARGET_SAMPLES = 30;
+const ALPHABET_TRAIN = 'ABCDEFGHIKLMNOPQRSTUVWXY'.split('');
 
-async function augmentAndGetBase64(videoElement: HTMLVideoElement, degree: number, flip: boolean = false): Promise<string> {
-  const canvas = document.createElement('canvas');
-  canvas.width = videoElement.videoWidth;
-  canvas.height = videoElement.videoHeight;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
+interface LandmarkSample {
+  language: string;
+  letter: string;
+  vector: number[];
+  handedness: string;
+  timestamp: number;
+}
 
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  if (flip) {
-    ctx.scale(-1, 1);
-  }
-  if (degree !== 0) {
-    ctx.rotate((degree * Math.PI) / 180);
-  }
-  ctx.drawImage(videoElement, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
-  
-  return canvas.toDataURL('image/jpeg', 0.9);
+interface FrameData {
+  primary: Point3D[] | null;
+  secondary: Point3D[] | null;
+  primaryHandedness: Handedness;
+  secondaryHandedness: Handedness;
 }
 
 export default function TrainPage() {
-  const [activeSystem, setActiveSystem] = useState<SignSystem>('bisindo');
+  const [activeSystem, setActiveSystem] = useState<SignSystem>('sibi');
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
-  
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureSuccess, setCaptureSuccess] = useState(false);
+  const [handDetected, setHandDetected] = useState(false);
+  const [noHandWarning, setNoHandWarning] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const currentFrameRef = useRef<FrameData | null>(null);
 
   const fetchProgress = async (sys: SignSystem) => {
     try {
@@ -64,27 +65,29 @@ export default function TrainPage() {
 
   useEffect(() => {
     if (!activeLetter || !videoRef.current || !canvasRef.current) return;
-    
+
     const tracker = new HandTracker(videoRef.current);
-    tracker.onResults((primary, secondary) => {
+
+    tracker.onResults((primary, secondary, primaryHandedness, secondaryHandedness) => {
+      currentFrameRef.current = { primary, secondary, primaryHandedness, secondaryHandedness };
+      setHandDetected(!!primary);
+
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const drawHand = (lms: typeof primary) => {
-        ctx.strokeStyle = '#10b981';
+      const drawHand = (lms: Point3D[], color: string) => {
+        ctx.strokeStyle = color;
         ctx.lineWidth = 4;
         for (const [start, end] of HAND_CONNECTIONS) {
-          const p1 = lms[start];
-          const p2 = lms[end];
           ctx.beginPath();
-          ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
-          ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+          ctx.moveTo(lms[start].x * canvas.width, lms[start].y * canvas.height);
+          ctx.lineTo(lms[end].x * canvas.width, lms[end].y * canvas.height);
           ctx.stroke();
         }
-        ctx.fillStyle = '#10b981';
+        ctx.fillStyle = color;
         lms.forEach(p => {
           ctx.beginPath();
           ctx.arc(p.x * canvas.width, p.y * canvas.height, 5, 0, 2 * Math.PI);
@@ -92,72 +95,107 @@ export default function TrainPage() {
         });
       };
 
-      if (primary) drawHand(primary);
-      if (secondary) drawHand(secondary);
+      if (primary) drawHand(primary, '#10b981');
+      if (secondary) drawHand(secondary, '#3b82f6');
     });
 
     tracker.start();
-    return () => tracker.stop();
+    return () => {
+      tracker.stop();
+      currentFrameRef.current = null;
+      setHandDetected(false);
+    };
   }, [activeLetter]);
 
-  const handleCapture = async () => {
-    if (!videoRef.current || !activeLetter || isUploading) return;
-    setIsUploading(true);
+  const handleCapture = useCallback(async () => {
+    if (isCapturing || !activeLetter) return;
 
-    try {
-      const b1 = await augmentAndGetBase64(videoRef.current, 0, true);
-      const b2 = await augmentAndGetBase64(videoRef.current, 10, true);
-      const b3 = await augmentAndGetBase64(videoRef.current, -10, true);
-
-      const uploads = [b1, b2, b3].map(base64 => 
-        fetch('/api/train/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ language: activeSystem, letter: activeLetter, imageBase64: base64 })
-        })
-      );
-
-      await Promise.all(uploads);
-      
-      setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 2000);
-      
-      setProgress(p => ({ ...p, [activeLetter]: (p[activeLetter] || 0) + 3 }));
-    } catch (e) {
-      console.error(e);
-      alert('Upload failed');
-    } finally {
-      setIsUploading(false);
+    const frame = currentFrameRef.current;
+    if (!frame || !frame.primary) {
+      setNoHandWarning(true);
+      setTimeout(() => setNoHandWarning(false), 2000);
+      return;
     }
-  };
+
+    setIsCapturing(true);
+    try {
+      const isBisindo = activeSystem === 'bisindo';
+      const primaryIsLeft = frame.primaryHandedness === 'Left';
+      const secondaryIsLeft = frame.secondaryHandedness === 'Left';
+
+      const result = isBisindo
+        ? extractAllDual(frame.primary, frame.secondary, primaryIsLeft, secondaryIsLeft)
+        : extractAll(frame.primary, primaryIsLeft);
+
+      if (!result.vector) {
+        throw new Error('Feature extraction failed — pastikan tangan terlihat penuh di kamera');
+      }
+
+      const sample: LandmarkSample = {
+        language: activeSystem,
+        letter: activeLetter,
+        vector: result.vector,
+        handedness: frame.primaryHandedness ?? 'Right',
+        timestamp: Date.now(),
+      };
+
+      const res = await fetch('/api/train/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sample),
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+
+      setCaptureSuccess(true);
+      setTimeout(() => setCaptureSuccess(false), 1500);
+      setProgress(p => ({ ...p, [activeLetter]: (p[activeLetter] || 0) + 1 }));
+
+    } catch (e) {
+      console.error('[TRAIN] capture error:', e);
+      alert(`Capture failed: ${(e as Error).message}`);
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [activeLetter, activeSystem, isCapturing]);
+
+  useEffect(() => {
+    if (!activeLetter) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === 'Space') { e.preventDefault(); handleCapture(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activeLetter, handleCapture]);
 
   return (
     <div className="flex-1 w-full bg-slate-50 min-h-screen pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-10">
+
         <div className="mb-8 anim-fade-up">
           <div className="flex items-center gap-2 mb-3">
-            <span className="eyebrow"><Camera className="w-3 h-3" />Self-Training</span>
+            <span className="eyebrow"><Database className="w-3 h-3" />Dataset Collection</span>
           </div>
-          <h1 className="section-title mb-2">Dataset Collection</h1>
+          <h1 className="section-title mb-2">Landmark Training</h1>
           <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
-            Help improve the sign language models by submitting your own hand gestures.
+            Setiap capture menyimpan <strong>42 koordinat landmark</strong> tangan — bukan gambar.
+            Data langsung siap untuk training model.
           </p>
         </div>
 
         {!activeLetter ? (
           <div className="space-y-6 anim-fade-up delay-1">
             <div className="card p-5">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Select Sign System</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Sign System</p>
               <div className="flex flex-wrap gap-2">
                 {SIGN_SYSTEMS.filter(s => s.key !== 'international').map(sys => (
                   <button
                     key={sys.key}
                     onClick={() => setActiveSystem(sys.key)}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 select-none ${
-                      activeSystem === sys.key
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 select-none ${activeSystem === sys.key
                         ? `${sys.color} text-white border-transparent shadow-md scale-[1.02]`
                         : 'bg-slate-100 text-slate-500 border-slate-200 hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     {sys.name}
                   </button>
@@ -169,9 +207,8 @@ export default function TrainPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-4">
                 {ALPHABET_TRAIN.map(letter => {
                   const count = progress[letter] || 0;
-                  const isDone = count >= TARGET_PHOTOS * 3; 
-                  const pct = Math.min(100, Math.round((count / (TARGET_PHOTOS * 3)) * 100));
-                  
+                  const isDone = count >= TARGET_SAMPLES;
+                  const pct = Math.min(100, Math.round((count / TARGET_SAMPLES) * 100));
                   return (
                     <button
                       key={letter}
@@ -179,11 +216,13 @@ export default function TrainPage() {
                       className="group relative bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center gap-3 hover:border-brand-400 hover:shadow-lg transition-all text-left overflow-hidden"
                     >
                       <div className="absolute bottom-0 left-0 h-1 bg-brand-500 transition-all duration-500" style={{ width: `${pct}%` }} />
-                      
                       <span className="text-3xl font-bold text-slate-800">{letter}</span>
                       <div className="w-full flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-medium">{count} / {TARGET_PHOTOS * 3}</span>
-                        {isDone ? <Check className="w-4 h-4 text-emerald-500" /> : <Camera className="w-4 h-4 text-slate-300 group-hover:text-brand-400 transition-colors" />}
+                        <span className="text-slate-400 font-medium">{count} / {TARGET_SAMPLES}</span>
+                        {isDone
+                          ? <Check className="w-4 h-4 text-emerald-500" />
+                          : <Camera className="w-4 h-4 text-slate-300 group-hover:text-brand-400 transition-colors" />
+                        }
                       </div>
                     </button>
                   );
@@ -193,7 +232,7 @@ export default function TrainPage() {
           </div>
         ) : (
           <div className="anim-fade-up">
-            <button 
+            <button
               onClick={() => { setActiveLetter(null); fetchProgress(activeSystem); }}
               className="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
             >
@@ -202,32 +241,50 @@ export default function TrainPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 card p-2 relative">
-                <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-white text-xs font-bold tracking-wider uppercase">
-                  Capturing: {activeLetter}
+                <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+                  <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-white text-xs font-bold tracking-wider uppercase">
+                    Capturing: {activeLetter}
+                  </div>
+                  <div className={`w-2.5 h-2.5 rounded-full transition-colors ${handDetected ? 'bg-emerald-400' : 'bg-red-400'}`} />
                 </div>
+
                 <div className="relative rounded-xl overflow-hidden bg-slate-900 aspect-video">
                   <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" playsInline muted />
                   <canvas ref={canvasRef} width={640} height={480} className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" />
                 </div>
-                
-                <div className="p-4 flex justify-center">
-                  <button 
+
+                <div className="p-4 flex flex-col items-center gap-3">
+                  <button
                     onClick={handleCapture}
-                    disabled={isUploading}
-                    className={`btn btn-primary btn-lg flex items-center gap-3 px-10 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isCapturing}
+                    className={`btn btn-primary btn-lg flex items-center gap-3 px-10 ${isCapturing ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    {isUploading ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
-                    {isUploading ? 'Uploading...' : 'Take Photo'}
+                    {isCapturing ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+                    {isCapturing ? 'Saving...' : 'Capture Landmark'}
                   </button>
+                  <p className="text-xs text-slate-400">
+                    atau tekan <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 font-mono">Space</kbd>
+                  </p>
                 </div>
-                
+
                 <AnimatePresence>
-                  {uploadSuccess && (
-                    <motion.div 
+                  {captureSuccess && (
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2"
                     >
-                      <Check className="w-4 h-4" /> Captured 3 variations!
+                      <Check className="w-4 h-4" /> Landmark saved!
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {noHandWarning && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2"
+                    >
+                      <AlertCircle className="w-4 h-4" /> Tangan tidak terdeteksi
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -235,10 +292,10 @@ export default function TrainPage() {
 
               <div className="card p-6 flex flex-col gap-6">
                 <div>
-                  <h3 className="font-bold text-slate-800 mb-2">Reference Image</h3>
+                  <h3 className="font-bold text-slate-800 mb-2">Referensi Gesture</h3>
                   <div className="w-full aspect-square bg-slate-100 rounded-2xl border border-slate-200 p-4 flex items-center justify-center">
-                    <img 
-                      src={getSignImage(activeSystem, activeLetter)} 
+                    <img
+                      src={getSignImage(activeSystem, activeLetter)}
                       alt={activeLetter}
                       className="w-full h-full object-contain mix-blend-multiply"
                       onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
@@ -249,12 +306,22 @@ export default function TrainPage() {
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <h4 className="font-bold text-sm text-slate-700 mb-2">Progress</h4>
                   <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2">
-                    <div 
-                      className="bg-brand-500 h-2.5 rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min(100, ((progress[activeLetter] || 0) / 30) * 100)}%` }} 
+                    <div
+                      className="bg-brand-500 h-2.5 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, ((progress[activeLetter] || 0) / TARGET_SAMPLES) * 100)}%` }}
                     />
                   </div>
-                  <p className="text-xs text-slate-500 font-medium">{progress[activeLetter] || 0} / 30 photos collected</p>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {progress[activeLetter] || 0} / {TARGET_SAMPLES} samples
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-xs text-blue-700 space-y-1.5">
+                  <p className="font-bold text-blue-800 mb-2">Tips data berkualitas:</p>
+                  <p>• Variasikan posisi (dekat/jauh kamera)</p>
+                  <p>• Variasikan sudut (sedikit miring)</p>
+                  <p>• Pastikan semua 21 landmark terlihat</p>
+                  <p>• Dot hijau = tangan terdeteksi</p>
                 </div>
               </div>
             </div>
