@@ -118,8 +118,6 @@ body {
 
 /* ─── Nav pill container ─────────────────── */
 .nav-pill {
-  display: flex;
-  gap: 2px;
   background: var(--s2);
   border: 1px solid var(--bd);
   border-radius: 10px;
@@ -220,6 +218,7 @@ body {
 
 /* ─── Cards ──────────────────────────────── */
 .card {
+  position: relative;
   background: var(--s1);
   border: 1px solid var(--bd);
   border-radius: 18px;

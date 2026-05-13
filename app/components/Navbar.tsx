@@ -53,7 +53,7 @@ export function Navbar() {
           </Link>
 
           {/* Desktop nav pill */}
-          <div className="hidden md:flex nav-pill">
+          <div className="hidden md:flex gap-0.5 nav-pill">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
