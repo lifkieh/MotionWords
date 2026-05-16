@@ -9,7 +9,7 @@ Cara pakai:
 
 import argparse
 import json
-import os
+import re
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +23,7 @@ BASE_DIR     = Path(__file__).parent
 LANDMARK_DIR = BASE_DIR / "public" / "landmarks"
 MODEL_DIR    = BASE_DIR / "public" / "models"
 
-FEATURE_SIZE = {"sibi": 42, "asl": 42, "bisindo": 42}
+FEATURE_SIZE = {"sibi": 42, "asl": 42, "bisindo": 84}
 SKIP_LETTERS = {"J", "Z"}
 
 
@@ -44,7 +44,7 @@ def load_dataset(system):
         if letter in SKIP_LETTERS:
             continue
         try:
-            df = pd.read_csv(csv_path)
+            df = pd.read_csv(csv_path, on_bad_lines='skip')
         except Exception as e:
             print(f"  [WARN] Skip {csv_path.name}: {e}")
             continue
@@ -95,6 +95,24 @@ def build_model(feature_size, num_classes):
     return model
 
 
+def patch_model_json(model_json_path: Path):
+    """
+    Fix model.json agar kompatibel dengan TF.js di browser:
+    1. Ganti 'batch_shape' -> 'batch_input_shape'
+    2. Hapus prefix 'sequential_1/' dari nama weight
+    """
+    content = model_json_path.read_text(encoding="utf-8")
+
+    # Fix InputLayer config
+    content = content.replace('"batch_shape":', '"batch_input_shape":')
+
+    # Fix weight names — hapus prefix sequential_1/
+    content = re.sub(r'"sequential_1/(dense[^"]*)"', r'"\1"', content)
+
+    model_json_path.write_text(content, encoding="utf-8")
+    print(f"  Patched: model.json (TF.js compatible)")
+
+
 def train(system):
     print(f"\n{'='*60}\nTraining: {system.upper()}\n{'='*60}\n")
 
@@ -114,11 +132,20 @@ def train(system):
 
     print("\n[3/4] Training...")
     callbacks = [
-        keras.callbacks.EarlyStopping(monitor="val_accuracy", patience=15, restore_best_weights=True, verbose=1),
-        keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=7, verbose=1),
+        keras.callbacks.EarlyStopping(
+            monitor="val_accuracy", patience=15,
+            restore_best_weights=True, verbose=1
+        ),
+        keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", factor=0.5, patience=7, verbose=1
+        ),
     ]
-    model.fit(X_train, y_train, validation_data=(X_val, y_val),
-              epochs=150, batch_size=32, callbacks=callbacks, verbose=1)
+    model.fit(
+        X_train, y_train,
+        validation_data=(X_val, y_val),
+        epochs=150, batch_size=32,
+        callbacks=callbacks, verbose=1,
+    )
 
     val_loss, val_acc = model.evaluate(X_val, y_val, verbose=0)
     print(f"\nVal accuracy: {val_acc:.4f} ({val_acc*100:.1f}%)")
@@ -127,19 +154,25 @@ def train(system):
     output_dir = MODEL_DIR / system
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Coba export TF.js langsung
+    # Export ke TF.js
     try:
         import tensorflowjs as tfjs
         tfjs.converters.save_keras_model(model, str(output_dir))
         print(f"  Exported to TF.js format")
     except Exception as e:
         print(f"  [WARN] TF.js export gagal: {e}")
-        # Fallback: simpan .h5
         h5_path = output_dir / "model.h5"
         model.save(str(h5_path))
-        print(f"  Saved as model.h5 — convert manual dengan tensorflowjs_converter")
+        print(f"  Saved as model.h5")
 
-    # Tulis metadata.json (label bersih, bukan np.str_)
+    # Patch model.json supaya kompatibel dengan browser
+    model_json = output_dir / "model.json"
+    if model_json.exists():
+        patch_model_json(model_json)
+    else:
+        print(f"  [WARN] model.json tidak ditemukan, skip patch")
+
+    # Tulis metadata.json
     metadata = {
         "labelMap": label_names,
         "featureSize": feature_size,
@@ -151,7 +184,7 @@ def train(system):
     print(f"  Written: metadata.json")
 
     print(f"\n{'='*60}")
-    print(f"SIBI selesai! Accuracy: {val_acc*100:.1f}%")
+    print(f"{system.upper()} selesai! Accuracy: {val_acc*100:.1f}%")
     print(f"Output: {output_dir}")
     print(f"{'='*60}\n")
     return val_acc
@@ -159,7 +192,11 @@ def train(system):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--system", choices=["sibi", "asl", "bisindo", "all"], default="sibi")
+    parser.add_argument(
+        "--system",
+        choices=["sibi", "asl", "bisindo", "all"],
+        default="sibi"
+    )
     args = parser.parse_args()
 
     systems = ["sibi", "asl", "bisindo"] if args.system == "all" else [args.system]

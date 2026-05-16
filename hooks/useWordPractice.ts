@@ -94,17 +94,6 @@ export function useWordPractice(word: string, system: SignSystem) {
       if (!smootherRef.current) return;
       
       const smoothed = smootherRef.current.push(label, confidence);
-      
-      console.log('[DEBUG]', { 
-        system, 
-        currentLetter, 
-        rawLabel: label, 
-        confidence: confidence,
-        smoothedLabel: smoothed?.label,
-        smoothedConfidence: smoothed?.confidence,
-        featuresSample: data.vector?.slice(0, 6),
-        comparison: smoothed?.label?.toUpperCase() === currentLetter?.toUpperCase()
-      });
 
       // Update debug info
       setDebugInfo({
@@ -128,7 +117,8 @@ export function useWordPractice(word: string, system: SignSystem) {
         return;
       }
 
-      if (smoothed.label.toUpperCase() === currentLetter.toUpperCase() && smoothed.confidence >= 0.82) {
+      console.log("[CHECK]", smoothed?.label, currentLetter, smoothed?.confidence, config.confidence);
+      if (smoothed?.label?.toUpperCase() === currentLetter?.toUpperCase() && smoothed.confidence >= config.confidence) {
         if (dropHoldTimerRef.current) {
           clearTimeout(dropHoldTimerRef.current);
           dropHoldTimerRef.current = null;
@@ -182,7 +172,7 @@ export function useWordPractice(word: string, system: SignSystem) {
       setResult('Pending');
       isHoldingRef.current = false;
     }
-  }, [currentLetter, isFinished, currentIndex, system, config.confidence, config.holdDurationMs]);
+  }, [currentLetter, isFinished, currentIndex, system, config.confidence, config.holdDurationMs, config.smoothingWindow]);
 
   const reset = useCallback(() => {
     setCurrentIndex(0);
@@ -219,3 +209,9 @@ export function useWordPractice(word: string, system: SignSystem) {
     debugInfo
   };
 }
+
+
+
+
+
+

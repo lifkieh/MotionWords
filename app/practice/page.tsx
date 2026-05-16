@@ -212,18 +212,13 @@ export default function Practice() {
         try {
           const system = activeSystemRef.current;
           const isBisindo = system === 'bisindo';
-
-          // Hilangkan needsTwoHands warning — BISINDO support 1 tangan
-          // extractAllDual akan otomatis isi zeros untuk secondary jika null
-
-          // Untuk Bisindo, aktifkan x-flip (mirror) agar cocok dengan model pelatihan
-          // Untuk SIBI dan ASL, matikan x-flip karena berasal dari Kaggle dataset (raw right hand)
-          const primaryIsLeft = isBisindo ? primaryHandedness === 'Left' : false;
-          const secondaryIsLeft = isBisindo ? secondaryHandedness === 'Left' : false;
+          
+          const primaryIsLeft = primaryHandedness === 'Left';
+          const secondaryIsLeft = secondaryHandedness === 'Left';
 
           const { features, vector } = isBisindo
             ? extractAllDual(primary, secondary, primaryIsLeft, secondaryIsLeft)  // 84 fitur normalisasi
-            : extractAll(primary);                                             // 42 fitur raw x,y SIBI/ASL
+            : extractAll(primary, primaryIsLeft);                                 // 42 fitur normalisasi SIBI/ASL
 
           processFeaturesRef.current({ features, vector });
         } catch (e) {
@@ -379,4 +374,5 @@ export default function Practice() {
     </div>
   );
 }
+
 
