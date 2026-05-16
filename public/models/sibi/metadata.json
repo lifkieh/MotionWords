@@ -27,5 +27,5 @@
   ],
   "featureSize": 42,
   "numClasses": 24,
-  "finalAcc": 1.0
+  "finalAcc": 0.9996695518493652
 }
